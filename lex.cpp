@@ -5,8 +5,8 @@
 
 #include "lex.h"
 
-ostream &operator<<(ostream &out, const LexItem &tok) {}
+/*ostream &operator<<(ostream &out, const LexItem &tok) {}*/
 
-LexItem id_or_kw(const string &lexeme, int linenum) {}
+/*LexItem id_or_kw(const string &lexeme, int linenum) {}*/
 
-LexItem getNextToken(istream &in, int &linenum) {}
+LexItem getNextToken(istream &in, int &linenum) { return LexItem(); }
