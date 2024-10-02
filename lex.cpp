@@ -56,7 +56,7 @@ LexItem getNextToken(istream &in, int &linenum) {
 	LexItem lex = LexItem();
 
 	// States of the lexer, used to determine multi-character tokens
-	enum STATES { START, IN_IDENT, IN_INT, IN_NUM, IN_STR, IN_CHAR, MULTI_COMMENT, SINGLE_COMMENT };
+	enum STATES { START, IN_IDENT, IN_INT, IN_NUM, IN_OP, IN_STR, IN_CHAR, MULTI_COMMENT, SINGLE_COMMENT };
 
 	// Continually consumes characters to find lexemes
 	string lexeme;
@@ -90,6 +90,10 @@ LexItem getNextToken(istream &in, int &linenum) {
 					lexeme += in.get();
 					curState = IN_IDENT;
 
+				} else if (isdigit(c)) {  // Integers and Real Constants
+					lexeme += in.get();
+					curState = IN_INT;
+
 				} else if (c == '\"') {	 // Strings
 					in.get();			 // Consumes the "
 					curState = IN_STR;
@@ -116,9 +120,56 @@ LexItem getNextToken(istream &in, int &linenum) {
 
 				break;
 
-			case IN_INT: break;
+			case IN_INT:
 
-			case IN_NUM: break;
+				// End of the integer
+				if (!isdigit(c) && c != '.') {
+					lex = LexItem(ICONST, lexeme, linenum);
+					return lex;
+				}
+
+				// Check for possible Real Constant
+				if (c == '.') {
+					lexeme += in.get();
+					c = in.peek();
+					if (isdigit(c)) {
+						curState = IN_NUM;
+						continue;
+					}
+
+					// ICONST followed by DOT
+					// 5.
+					// Puts back the dot we used to check the character following it
+					lexeme.pop_back();
+					in.putback('.');
+					lex = LexItem(ICONST, lexeme, linenum);
+					return lex;
+				}
+
+				lexeme += in.get();
+
+				break;
+
+			case IN_NUM:
+
+				// Error
+				// 1.7.2
+				if (c == '.') {
+					lex = LexItem(ERR, lexeme + '.', linenum);
+					return lex;
+				}
+
+				// End of the Real Constant
+				if (!isdigit(c)) {
+					lex = LexItem(RCONST, lexeme, linenum);
+					return lex;
+				}
+
+				lexeme += in.get();
+
+				break;
+
+			case IN_OP: break;
 
 			case IN_STR:  // String constants
 
