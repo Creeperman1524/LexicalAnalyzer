@@ -39,7 +39,7 @@ LexItem getNextToken(istream &in, int &linenum) {
 	LexItem lex = LexItem();
 
 	// States of the lexer, used to determine multi-character tokens
-	enum STATES { START, IN_IDENT, IN_INT, IN_NUM, IN_STR, IN_CHAR, IN_COMMENT };
+	enum STATES { START, IN_IDENT, IN_INT, IN_NUM, IN_STR, IN_CHAR, MULTI_COMMENT, SINGLE_COMMENT };
 
 	// Continually consumes characters to find lexemes
 	string lexeme;
@@ -57,6 +57,18 @@ LexItem getNextToken(istream &in, int &linenum) {
 				} else if (c == '\n') {	 // New lines
 					linenum++;
 					in.get();
+
+				} else if (c == '/') {	// Comments
+					in.get();			// Consumes the /
+
+					if (in.peek() == '*') {	 // Multi-line
+						in.get();			 // Consumes the *
+						curState = MULTI_COMMENT;
+					} else if (in.peek() == '/') {	// Single-line
+						in.get();					// Consumes the /
+						curState = SINGLE_COMMENT;
+					}
+
 				} else if (isalpha(c) or c == '_') {  // Identifiers
 					lexeme += in.get();
 					curState = IN_IDENT;
@@ -143,7 +155,36 @@ LexItem getNextToken(istream &in, int &linenum) {
 
 				break;
 
-			case IN_COMMENT: break;
+			case MULTI_COMMENT:	 // Multi-line comment
+
+				// Keep the count of lines
+				if (c == '\n') {
+					linenum++;
+				}
+
+				// Keeps checking for */
+				if (c == '*') {
+					in.get();
+					if (in.peek() == '/') {
+						curState = START;
+					}
+				}
+
+				in.get();  // Consumes all the characters in the comment
+
+				break;
+
+			case SINGLE_COMMENT:  // Single-line comment
+
+				// Keeps checking for a new line
+				if (c == '\n') {
+					linenum++;
+					curState = START;
+				}
+
+				in.get();  // Consumes all the characters in the comment
+
+				break;
 		}
 	}
 
