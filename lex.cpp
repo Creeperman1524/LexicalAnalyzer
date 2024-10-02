@@ -5,7 +5,33 @@
 
 #include "lex.h"
 
-/*ostream &operator<<(ostream &out, const LexItem &tok) {}*/
+string enumToString[44] = {
+	"IF",	 "ELSE",   "PRINT",	   "INT",	   "FLOAT",	   "CHAR",	   "STRING",   "BOOL",	 "PROGRAM", "TRUE", "FALSE",
+	"IDENT", "ICONST", "RCONST",   "SCONST",   "BCONST",   "CCONST",   "PLUS",	   "MINUS",	 "MULT",	"DIV",	"ASSOP",
+	"EQ",	 "NEQ",	   "ADDASSOP", "SUBASSOP", "MULASSOP", "DIVASSOP", "REMASSOP", "GTHAN",	 "LTHAN",	"AND",	"OR",
+	"NOT",	 "REM",	   "COMMA",	   "SEMICOL",  "LPAREN",   "RPAREN",   "DOT",	   "LBRACE", "RBRACE",	"ERR",	"DONE"};
+
+ostream &operator<<(ostream &out, const LexItem &tok) {
+	Token token = tok.GetToken();
+
+	// Output the elements as strings rather than ints
+	out << enumToString[token];
+
+	if (token == ICONST || token == RCONST || token == BCONST) {
+		out << ": (" << tok.GetLexeme() << ")";
+	} else if (token == IDENT) {
+		out << ": <" << tok.GetLexeme() << ">";
+	} else if (token == SCONST) {
+		out << ": \"" << tok.GetLexeme() << "\"";
+	} else if (token == CCONST) {
+		out << ": \'" << tok.GetLexeme() << "\'";
+	} else if (token == ERR) {
+		out << "ERR: Unrecognized Lexeme {" << tok.GetLexeme() << "} in line " << tok.GetLinenum();
+	}
+
+	out << endl;
+	return out;
+}
 
 /*LexItem id_or_kw(const string &lexeme, int linenum) {}*/
 

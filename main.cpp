@@ -5,8 +5,6 @@
 
 #include "lex.h"
 #include <fstream>
-#include <iostream>
-#include <string>
 
 int main(int argc, char *argv[]) {
 	// No provided file
@@ -56,8 +54,7 @@ int main(int argc, char *argv[]) {
 		LexItem token = getNextToken(inFile, numLines);
 
 		if (token.GetToken() == ERR) {
-			// TODO: make use of the operator<< function to display an error
-			cerr << "Token is invalid" << endl;
+			cout << token;
 			exit(1);
 		}
 
@@ -69,8 +66,7 @@ int main(int argc, char *argv[]) {
 			hasText = true;
 		}
 
-		// TODO: print out the tokens with the operator<< overload
-		cout << token.GetToken() << " " << token.GetLexeme() << " " << token.GetLinenum() << endl;
+		cout << token;
 	}
 
 	// Detects an empty file
