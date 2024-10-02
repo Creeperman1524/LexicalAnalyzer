@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
 
 	bool completed = false;
 	bool hasText = false;
-	int numLines = 0;
+	int numLines = 1;
 
 	while (!completed) {
 		// Reads each token

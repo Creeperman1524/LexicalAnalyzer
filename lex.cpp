@@ -46,8 +46,6 @@ LexItem getNextToken(istream &in, int &linenum) {
 	char c;
 	STATES curState = START;
 
-	// TODO: everytime a \n is read, increment linenum
-
 	while ((c = in.peek())) {
 		switch (curState) {
 			case START:
@@ -56,9 +54,13 @@ LexItem getNextToken(istream &in, int &linenum) {
 					lex = LexItem(DONE, "", linenum);
 					return lex;
 
+				} else if (c == '\n') {	 // New lines
+					linenum++;
+					in.get();
 				} else if (isalpha(c) or c == '_') {  // Identifiers
 					lexeme += in.get();
 					curState = IN_IDENT;
+
 				} else {  // FIX: temporarily skip everything else
 					in.get();
 				}
