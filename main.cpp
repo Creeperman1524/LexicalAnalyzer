@@ -6,7 +6,6 @@
 #include "lex.h"
 #include <fstream>
 #include <iostream>
-#include <sstream>
 #include <string>
 
 int main(int argc, char *argv[]) {
@@ -48,18 +47,13 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
+	bool completed = false;
 	bool hasText = false;
-	int lines = 0;
+	int numLines = 0;
 
-	// Reads each line from the file
-	string line;
-	while (getline(inFile, line)) {
-		stringstream lineStream(line);
-		lines++;
-		hasText = true;
-
-		// Reads each word and performs actions against them
-		LexItem token = getNextToken(lineStream, lines);
+	while (!completed) {
+		// Reads each token
+		LexItem token = getNextToken(inFile, numLines);
 
 		if (token.GetToken() == ERR) {
 			// TODO: make use of the operator<< function to display an error
@@ -67,7 +61,16 @@ int main(int argc, char *argv[]) {
 			exit(1);
 		}
 
-		// TODO: print out the tokens
+		// Ends the loop once the entire file is read
+		if (token.GetToken() == DONE) {
+			completed = true;
+			break;
+		} else {
+			hasText = true;
+		}
+
+		// TODO: print out the tokens with the operator<< overload
+		cout << token.GetToken() << " " << token.GetLexeme() << " " << token.GetLinenum() << endl;
 	}
 
 	// Detects an empty file
@@ -75,6 +78,8 @@ int main(int argc, char *argv[]) {
 		cerr << "Empty file." << endl;
 		exit(1);
 	}
+
+	// TODO: print out the flag stuff
 
 	return 0;
 }
