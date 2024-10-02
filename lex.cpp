@@ -11,6 +11,11 @@ string enumToString[44] = {
 	"EQ",	 "NEQ",	   "ADDASSOP", "SUBASSOP", "MULASSOP", "DIVASSOP", "REMASSOP", "GTHAN",	 "LTHAN",	"AND",	"OR",
 	"NOT",	 "REM",	   "COMMA",	   "SEMICOL",  "LPAREN",   "RPAREN",   "DOT",	   "LBRACE", "RBRACE",	"ERR",	"DONE"};
 
+map<string, Token> keywords {
+	{"if", IF},			{"else", ELSE}, {"print", PRINT},	  {"int", INT},		{"float", FLOAT},  {"char", CHAR},
+	{"string", STRING}, {"bool", BOOL}, {"program", PROGRAM}, {"true", BCONST}, {"false", BCONST},
+};
+
 ostream &operator<<(ostream &out, const LexItem &tok) {
 	Token token = tok.GetToken();
 
@@ -26,14 +31,26 @@ ostream &operator<<(ostream &out, const LexItem &tok) {
 	} else if (token == CCONST) {
 		out << ": \'" << tok.GetLexeme() << "\'";
 	} else if (token == ERR) {
-		out << ": In line " << tok.GetLinenum() << ", Error Message {" << tok.GetLexeme() << "}";
+		out << ": In line " << tok.GetLinenum() << ", Error Message {" << tok.GetLexeme() << "}\n";
 	}
 
 	out << endl;
 	return out;
 }
 
-/*LexItem id_or_kw(const string &lexeme, int linenum) {}*/
+LexItem id_or_kw(const string &lexeme, int linenum) {
+	string lowerLexeme = "";
+
+	// Converts the name to lowercase to void case sensitivity
+	for (char c : lexeme) { lowerLexeme += tolower(c); }
+
+	// Checks if the keyword exists
+	if (keywords.find(lowerLexeme) != keywords.end()) {
+		return LexItem(keywords[lowerLexeme], lexeme, linenum);
+	}
+
+	return LexItem(IDENT, lexeme, linenum);
+}
 
 LexItem getNextToken(istream &in, int &linenum) {
 	LexItem lex = LexItem();
@@ -88,13 +105,10 @@ LexItem getNextToken(istream &in, int &linenum) {
 
 			case IN_IDENT:
 
-				// TODO: use id_or_kw() to check for reserved words/keywords
-
 				// Checks if the character is still apart of an IDENT
 				// If not, return an identifier and restart
 				if (!isalpha(c) && !isdigit(c) && c != '_') {
-					lex = LexItem(IDENT, lexeme, linenum);
-					return lex;
+					return id_or_kw(lexeme, linenum);
 				}
 
 				// Consumes the character
@@ -135,6 +149,7 @@ LexItem getNextToken(istream &in, int &linenum) {
 
 				// Correct char
 				if (c == '\'') {
+					in.get();  // Consumes the final delimiter
 					lex = LexItem(CCONST, lexeme, linenum);
 					return lex;
 				}
