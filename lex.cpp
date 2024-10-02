@@ -16,6 +16,8 @@ map<string, Token> keywords {
 	{"string", STRING}, {"bool", BOOL}, {"program", PROGRAM}, {"true", BCONST}, {"false", BCONST},
 };
 
+string opsAndDelims = "+-*/=!<>%&|,;(){}.";
+
 ostream &operator<<(ostream &out, const LexItem &tok) {
 	Token token = tok.GetToken();
 
@@ -75,16 +77,9 @@ LexItem getNextToken(istream &in, int &linenum) {
 					linenum++;
 					in.get();
 
-				} else if (c == '/') {	// Comments
-					in.get();			// Consumes the /
-
-					if (in.peek() == '*') {	 // Multi-line
-						in.get();			 // Consumes the *
-						curState = MULTI_COMMENT;
-					} else if (in.peek() == '/') {	// Single-line
-						in.get();					// Consumes the /
-						curState = SINGLE_COMMENT;
-					}
+				} else if (opsAndDelims.find(c) != string::npos) {	// Operators and Delimiters
+					lexeme += in.get();
+					curState = IN_OP;
 
 				} else if (isalpha(c) or c == '_') {  // Identifiers
 					lexeme += in.get();
@@ -102,8 +97,12 @@ LexItem getNextToken(istream &in, int &linenum) {
 					in.get();			 // Consumes the '
 					curState = IN_CHAR;
 
-				} else {  // FIX: temporarily skip everything else
-					in.get();
+				} else if (isspace(c)) {
+					in.get();  // Ignore all excess whitespace
+
+				} else {
+					lexeme += in.get();
+					return LexItem(ERR, lexeme, linenum);
 				}
 				break;
 
@@ -169,7 +168,177 @@ LexItem getNextToken(istream &in, int &linenum) {
 
 				break;
 
-			case IN_OP: break;
+			case IN_OP:
+
+				switch (lexeme.at(0)) {
+					case '+':
+
+						// Check for assignment operation
+						c = in.peek();
+						if (c == '=') {
+							lexeme += in.get();
+							lex = LexItem(ADDASSOP, lexeme, linenum);
+							return lex;
+						} else if (isdigit(c) || c == '.') {  // Start of a number
+							lexeme += in.get();
+							curState = IN_INT;
+							continue;
+						}
+
+						// Single character
+						return LexItem(PLUS, lexeme, linenum);
+
+						break;
+					case '-':
+
+						// Check for assignment operation
+						c = in.peek();
+						if (c == '=') {
+							lexeme += in.get();
+							lex = LexItem(SUBASSOP, lexeme, linenum);
+							return lex;
+						} else if (isdigit(c) || c == '.') {  // Start of a number
+							lexeme += in.get();
+							curState = IN_INT;
+							continue;
+						}
+
+						// Single character
+						return LexItem(MINUS, lexeme, linenum);
+
+						break;
+					case '*':
+
+						// Check for assignment operation
+						c = in.peek();
+						if (c == '=') {
+							lexeme += in.get();
+							lex = LexItem(MULASSOP, lexeme, linenum);
+							return lex;
+						}
+
+						// Single character
+						return LexItem(MULT, lexeme, linenum);
+
+						break;
+					case '/':
+
+						// Check for assignment operation
+						c = in.peek();
+						if (c == '=') {
+							lexeme += in.get();
+							lex = LexItem(DIVASSOP, lexeme, linenum);
+							return lex;
+						} else if (c == '/') {	// Single-comment
+							lexeme.pop_back();	// Takes the / out of the lexeme
+							in.get();
+							curState = SINGLE_COMMENT;
+							continue;
+						} else if (c == '*') {	// Multi-Comment
+							lexeme.pop_back();	// Takes the / out of the lexeme
+							in.get();
+							curState = MULTI_COMMENT;
+							continue;
+						}
+
+						// Single character
+						return LexItem(DIV, lexeme, linenum);
+
+						break;
+					case '=':
+
+						// Check for assignment operation
+						c = in.peek();
+						if (c == '=') {
+							lexeme += in.get();
+							lex = LexItem(EQ, lexeme, linenum);
+							return lex;
+						}
+
+						// Single character
+						return LexItem(ASSOP, lexeme, linenum);
+
+						break;
+					case '!':
+
+						// Check for assignment operation
+						c = in.peek();
+						if (c == '=') {
+							lexeme += in.get();
+							lex = LexItem(NEQ, lexeme, linenum);
+							return lex;
+						}
+
+						// Single character
+						return LexItem(NOT, lexeme, linenum);
+
+						break;
+					case '<': return LexItem(LTHAN, lexeme, linenum); break;
+					case '>': return LexItem(GTHAN, lexeme, linenum); break;
+					case '%':
+
+						// Check for assignment operation
+						c = in.peek();
+						if (c == '=') {
+							lexeme += in.get();
+							lex = LexItem(REMASSOP, lexeme, linenum);
+							return lex;
+						}
+
+						// Single character
+						return LexItem(REM, lexeme, linenum);
+
+						break;
+					case '&':
+
+						// Check for the double character
+						c = in.peek();
+						if (c == '&') {
+							lexeme += in.get();
+							lex = LexItem(AND, lexeme, linenum);
+							return lex;
+						}
+
+						// Error for single &
+						return LexItem(ERR, lexeme, linenum);
+
+						break;
+					case '|':
+
+						// Check for the double character
+						c = in.peek();
+						if (c == '|') {
+							lexeme += in.get();
+							lex = LexItem(OR, lexeme, linenum);
+							return lex;
+						}
+
+						// Error for single |
+						return LexItem(ERR, lexeme, linenum);
+
+						break;
+					case ',': return LexItem(COMMA, lexeme, linenum); break;
+					case ';': return LexItem(SEMICOL, lexeme, linenum); break;
+					case '(': return LexItem(LPAREN, lexeme, linenum); break;
+					case ')': return LexItem(RPAREN, lexeme, linenum); break;
+					case '{': return LexItem(LBRACE, lexeme, linenum); break;
+					case '}': return LexItem(RBRACE, lexeme, linenum); break;
+					case '.':
+
+						// Checks if it's the start of a Real Constant
+						c = in.peek();
+						if (isdigit(c)) {
+							lexeme += in.get();
+							curState = IN_NUM;
+							continue;
+						}
+						return LexItem(DOT, lexeme, linenum);
+						break;
+				}
+
+				return LexItem(IDENT, "womp", linenum);
+
+				break;
 
 			case IN_STR:  // String constants
 
