@@ -9,7 +9,7 @@
 int main(int argc, char *argv[]) {
 	// No provided file
 	if (argc < 2) {
-		cerr << "No specified input file" << endl;
+		cerr << "No specified input file." << endl;
 		exit(1);
 	}
 
@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
 			if (filename == "") {
 				filename = arg;
 			} else {
-				cerr << "Only one filename is allowed." << endl;
+				cerr << "Only one file name is allowed." << endl;
 				exit(1);
 			}
 		}

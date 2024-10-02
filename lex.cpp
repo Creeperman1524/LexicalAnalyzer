@@ -26,7 +26,7 @@ ostream &operator<<(ostream &out, const LexItem &tok) {
 	} else if (token == CCONST) {
 		out << ": \'" << tok.GetLexeme() << "\'";
 	} else if (token == ERR) {
-		out << "ERR: Unrecognized Lexeme {" << tok.GetLexeme() << "} in line " << tok.GetLinenum();
+		out << ": In line " << tok.GetLinenum() << ", Error Message {" << tok.GetLexeme() << "}";
 	}
 
 	out << endl;
@@ -39,7 +39,7 @@ LexItem getNextToken(istream &in, int &linenum) {
 	LexItem lex = LexItem();
 
 	// States of the lexer, used to determine multi-character tokens
-	enum STATES { START, IN_IDENT, IN_INT, IN_NUM, IN_STR, IN_COMMENT };
+	enum STATES { START, IN_IDENT, IN_INT, IN_NUM, IN_STR, IN_CHAR, IN_COMMENT };
 
 	// Continually consumes characters to find lexemes
 	string lexeme;
@@ -60,6 +60,14 @@ LexItem getNextToken(istream &in, int &linenum) {
 				} else if (isalpha(c) or c == '_') {  // Identifiers
 					lexeme += in.get();
 					curState = IN_IDENT;
+
+				} else if (c == '\"') {	 // Strings
+					in.get();			 // Consumes the "
+					curState = IN_STR;
+
+				} else if (c == '\'') {	 // Characters
+					in.get();			 // Consumes the '
+					curState = IN_CHAR;
 
 				} else {  // FIX: temporarily skip everything else
 					in.get();
@@ -86,7 +94,54 @@ LexItem getNextToken(istream &in, int &linenum) {
 
 			case IN_NUM: break;
 
-			case IN_STR: break;
+			case IN_STR:  // String constants
+
+				// Correct string
+				if (c == '\"') {
+					in.get();  // Consumes the final delimiter
+					lex = LexItem(SCONST, lexeme, linenum);
+					return lex;
+				}
+
+				// Mismatched pair
+				if (c == '\'') {
+					lex = LexItem(ERR, " Invalid string constant \"" + lexeme + "\'", linenum);
+					return lex;
+				}
+
+				// Missing pair
+				if (c == '\n') {
+					lex = LexItem(ERR, " Invalid string constant \"" + lexeme, linenum);
+					return lex;
+				}
+
+				lexeme += in.get();
+
+				break;
+
+			case IN_CHAR:  // Character constants
+
+				// Correct char
+				if (c == '\'') {
+					lex = LexItem(CCONST, lexeme, linenum);
+					return lex;
+				}
+
+				// Too long
+				if (lexeme.length() > 1) {
+					lex = LexItem(ERR, " Invalid character constant \'" + lexeme + "\'", linenum);
+					return lex;
+				}
+
+				// Missing pair
+				if (c == '\n') {
+					lex = LexItem(ERR, "New line is an invalid character constant.", linenum);
+					return lex;
+				}
+
+				lexeme += in.get();
+
+				break;
 
 			case IN_COMMENT: break;
 		}
