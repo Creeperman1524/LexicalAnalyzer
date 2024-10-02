@@ -74,8 +74,10 @@ LexItem getNextToken(istream &in, int &linenum) {
 					return lex;
 
 				} else if (c == '\n') {	 // New lines
-					linenum++;
 					in.get();
+					// Do not count the EOF as aa new line
+					if (in.peek() != EOF)
+						linenum++;
 
 				} else if (opsAndDelims.find(c) != string::npos) {	// Operators and Delimiters
 					lexeme += in.get();
@@ -179,9 +181,13 @@ LexItem getNextToken(istream &in, int &linenum) {
 							lexeme += in.get();
 							lex = LexItem(ADDASSOP, lexeme, linenum);
 							return lex;
-						} else if (isdigit(c) || c == '.') {  // Start of a number
+						} else if (isdigit(c)) {  // Start of an Integer Constant
 							lexeme += in.get();
 							curState = IN_INT;
+							continue;
+						} else if (c == '.') {	// Start of a Real Constant
+							lexeme += in.get();
+							curState = IN_NUM;
 							continue;
 						}
 
@@ -197,9 +203,13 @@ LexItem getNextToken(istream &in, int &linenum) {
 							lexeme += in.get();
 							lex = LexItem(SUBASSOP, lexeme, linenum);
 							return lex;
-						} else if (isdigit(c) || c == '.') {  // Start of a number
+						} else if (isdigit(c)) {  // Start of an Integer Constant
 							lexeme += in.get();
 							curState = IN_INT;
+							continue;
+						} else if (c == '.') {	// Start of a Real Constant
+							lexeme += in.get();
+							curState = IN_NUM;
 							continue;
 						}
 
