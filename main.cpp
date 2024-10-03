@@ -116,7 +116,6 @@ int main(int argc, char *argv[]) {
 	}
 
 	string filename = "";
-	bool noFlags = true;
 	bool allFlag = false;
 	bool idFlag = false;
 	bool kwFlag = false;
@@ -134,22 +133,16 @@ int main(int argc, char *argv[]) {
 				allFlag = true;
 			} else if (arg == "-id") {
 				idFlag = true;
-				noFlags = false;
 			} else if (arg == "-kw") {
 				kwFlag = true;
-				noFlags = false;
 			} else if (arg == "-num") {
 				numFlag = true;
-				noFlags = false;
 			} else if (arg == "-str") {
 				strFlag = true;
-				noFlags = false;
 			} else if (arg == "-char") {
 				charFlag = true;
-				noFlags = false;
 			} else if (arg == "-bool") {
 				boolFlag = true;
-				noFlags = false;
 			} else {
 				cerr << "Unrecognized flag {" << arg << "}" << endl;
 				exit(1);
@@ -226,12 +219,11 @@ int main(int argc, char *argv[]) {
 	}
 
 	cout << "\nLines: " << numLines << endl;
-	cout << "Total Tokens: " << numTokens << endl;								 // not counting done
-	cout << "Identifiers and Keywords: " << idents.size() + kws.size() << endl;	 // IDENT and keywords
-	cout << "Numerics: " << numerics.size() << endl;							 // ICONST and RCONST
-	cout << "Booleans: " << booleans.size() << endl;							 // BCONST
-	cout << "Strings and Characters: " << strings.size() + characters.size() << (allFlag && noFlags ? "\n" : "")
-		 << endl;  // SCONST and CCONST
+	cout << "Total Tokens: " << numTokens << endl;									   // not counting done
+	cout << "Identifiers and Keywords: " << idents.size() + kws.size() << endl;		   // IDENT and keywords
+	cout << "Numerics: " << numerics.size() << endl;								   // ICONST and RCONST
+	cout << "Booleans: " << booleans.size() << endl;								   // BCONST
+	cout << "Strings and Characters: " << strings.size() + characters.size() << endl;  // SCONST and CCONST
 
 	sortNumerics(numerics);
 	std::sort(booleans.begin(), booleans.end());

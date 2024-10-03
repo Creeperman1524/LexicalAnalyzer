@@ -76,8 +76,25 @@ LexItem getNextToken(istream &in, int &linenum) {
 				} else if (c == '\n') {	 // New lines
 					in.get();
 					// Do not count the EOF as aa new line
-					if (in.peek() != EOF)
+
+					while (in.peek() == ' ') { in.get(); }	// Consumes all the whitespace
+
+					c = in.peek();
+					if (c == EOF) {
+						continue;
+					}
+					if (c == '\n') {
+						in.get();
+						c = in.peek();
+						if (c == EOF) {
+							continue;
+						}
 						linenum++;
+					}
+
+					if (c != EOF) {
+						linenum++;
+					}
 
 				} else if (opsAndDelims.find(c) != string::npos) {	// Operators and Delimiters
 					lexeme += in.get();
