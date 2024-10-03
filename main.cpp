@@ -4,31 +4,108 @@
 // =============================================================================
 
 #include "lex.h"
+#include <algorithm>
 #include <fstream>
 #include <vector>
 
-vector<LexItem> idents;
-vector<LexItem> keywords;
-vector<LexItem> numerics;
-vector<LexItem> strings;
-vector<LexItem> characters;
-vector<LexItem> booleans;
+vector<string> idents;
+vector<string> kws;
+vector<string> numerics;
+vector<string> strings;
+vector<string> characters;
+vector<string> booleans;
 
-void printVec(vector<LexItem> vec, string surround = "") {
-	for (int i = 0; i < vec.size() - 1; i++) { cout << surround << vec.at(i).GetLexeme() << surround << ", "; }
+map<string, Token> keyMap {
+	{"if", IF},			{"else", ELSE}, {"print", PRINT},	  {"int", INT},		{"float", FLOAT},  {"char", CHAR},
+	{"string", STRING}, {"bool", BOOL}, {"program", PROGRAM}, {"true", BCONST}, {"false", BCONST},
+};
 
-	cout << surround << vec.at(vec.size() - 1).GetLexeme() << surround << endl;
+void printVec(vector<string> vec, string surround = "") {
+	for (int i = 0; i < vec.size() - 1; i++) { cout << surround << vec.at(i) << surround << ", "; }
+
+	cout << surround << vec.at(vec.size() - 1) << surround << endl;
 }
 
 // Inserts while checking for duplicates
-void insertIntoVec(vector<LexItem> &vec, LexItem lex) {
-	for (LexItem &l : vec) {
-		if (l.GetLexeme() == lex.GetLexeme()) {
+void insertIntoVec(vector<string> &vec, string lex) {
+	for (string &l : vec) {
+		if (l == lex) {
 			return;
 		}
 	}
 
 	vec.push_back(lex);
+}
+
+void sortKeywords(vector<string> &vec) {
+	int n = vec.size();
+
+	for (int i = 0; i < n - 1; i++) {
+		for (int j = 0; j < n - i - 1; j++) {
+			if (keyMap[vec[j]] > keyMap[vec[j + 1]]) {
+				string temp = vec[j];
+				vec[j] = vec[j + 1];
+				vec[j + 1] = temp;
+			}
+		}
+	}
+}
+
+void sortNumerics(vector<string> &vec) {
+	// Pairs together the int/float + string
+	vector<tuple<float, string>> pairs;
+	for (string i : vec) { pairs.push_back(make_tuple(stof(i), i)); }
+
+	// Sorts the pair array
+	int n = pairs.size();
+
+	for (int i = 0; i < n - 1; i++) {
+		for (int j = 0; j < n - i - 1; j++) {
+			if (get<0>(pairs[j]) > get<0>(pairs[j + 1])) {
+				tuple<float, string> temp = pairs[j];
+				pairs[j] = pairs[j + 1];
+				pairs[j + 1] = temp;
+			}
+		}
+	}
+
+	// Copies the sorted values onto the vector
+	for (int i = 0; i < pairs.size(); i++) { vec[i] = get<1>(pairs[i]); }
+}
+
+string convertStringInt(string num) {
+	string result = "";
+
+	// Gets rid of leading +
+	for (char &c : num) {
+		if (c != '+')
+			result += c;
+	}
+
+	return result;
+}
+
+string convertStringFloat(string num) {
+	string result = "";
+	bool sawOp = false;
+
+	// Adds a leading 0 when it sees a .
+	for (char &c : num) {
+		if (c == '.' && sawOp) {
+			result += "0.";
+			sawOp = false;
+		} else if (c == '-') {
+			result += c;
+			sawOp = true;
+		} else if (c == '+') {
+			sawOp = true;
+		} else {
+			result += c;
+			sawOp = false;
+		}
+	}
+
+	return result;
 }
 
 int main(int argc, char *argv[]) {
@@ -39,6 +116,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	string filename = "";
+	bool noFlags = true;
 	bool allFlag = false;
 	bool idFlag = false;
 	bool kwFlag = false;
@@ -52,21 +130,27 @@ int main(int argc, char *argv[]) {
 		string arg = argv[i];
 
 		if (arg.at(0) == '-') {	 // Handle flags
-			if (arg == "-all")
+			if (arg == "-all") {
 				allFlag = true;
-			else if (arg == "-id")
+			} else if (arg == "-id") {
 				idFlag = true;
-			else if (arg == "-kw")
+				noFlags = false;
+			} else if (arg == "-kw") {
 				kwFlag = true;
-			else if (arg == "-num")
+				noFlags = false;
+			} else if (arg == "-num") {
 				numFlag = true;
-			else if (arg == "-str")
+				noFlags = false;
+			} else if (arg == "-str") {
 				strFlag = true;
-			else if (arg == "-char")
+				noFlags = false;
+			} else if (arg == "-char") {
 				charFlag = true;
-			else if (arg == "-bool")
+				noFlags = false;
+			} else if (arg == "-bool") {
 				boolFlag = true;
-			else {
+				noFlags = false;
+			} else {
 				cerr << "Unrecognized flag {" << arg << "}" << endl;
 				exit(1);
 			}
@@ -119,17 +203,19 @@ int main(int argc, char *argv[]) {
 
 		// Creates the list of values to be printed
 		if (tokenType == IDENT) {
-			insertIntoVec(idents, lex);
+			insertIntoVec(idents, lex.GetLexeme());
 		} else if (tokenType < 9) {
-			insertIntoVec(keywords, lex);
-		} else if (tokenType == RCONST || tokenType == ICONST) {  // Integers and Real Constants
-			insertIntoVec(numerics, lex);
+			insertIntoVec(kws, lex.GetLexeme());
+		} else if (tokenType == RCONST) {  // Integers and Real Constants
+			insertIntoVec(numerics, convertStringFloat(lex.GetLexeme()));
+		} else if (tokenType == ICONST) {
+			insertIntoVec(numerics, convertStringInt(lex.GetLexeme()));
 		} else if (tokenType == BCONST) {  // Booleans
-			insertIntoVec(booleans, lex);
+			insertIntoVec(booleans, lex.GetLexeme());
 		} else if (tokenType == SCONST) {  // Strings
-			insertIntoVec(strings, lex);
+			insertIntoVec(strings, lex.GetLexeme());
 		} else if (tokenType == CCONST) {  // Characters
-			insertIntoVec(characters, lex);
+			insertIntoVec(characters, lex.GetLexeme());
 		}
 	}
 
@@ -140,11 +226,19 @@ int main(int argc, char *argv[]) {
 	}
 
 	cout << "\nLines: " << numLines << endl;
-	cout << "Total Tokens: " << numTokens << endl;									   // not counting done
-	cout << "Identifiers and Keywords: " << idents.size() + keywords.size() << endl;   // IDENT and keywords
-	cout << "Numerics: " << numerics.size() << endl;								   // ICONST and RCONST
-	cout << "Booleans: " << booleans.size() << endl;								   // BCONST
-	cout << "Strings and Characters: " << strings.size() + characters.size() << endl;  // SCONST and CCONST
+	cout << "Total Tokens: " << numTokens << endl;								 // not counting done
+	cout << "Identifiers and Keywords: " << idents.size() + kws.size() << endl;	 // IDENT and keywords
+	cout << "Numerics: " << numerics.size() << endl;							 // ICONST and RCONST
+	cout << "Booleans: " << booleans.size() << endl;							 // BCONST
+	cout << "Strings and Characters: " << strings.size() + characters.size() << (allFlag && noFlags ? "\n" : "")
+		 << endl;  // SCONST and CCONST
+
+	sortNumerics(numerics);
+	std::sort(booleans.begin(), booleans.end());
+	std::sort(characters.begin(), characters.end());
+	std::sort(strings.begin(), strings.end());
+	std::sort(idents.begin(), idents.end());
+	sortKeywords(kws);
 
 	if (numFlag && !numerics.empty()) {
 		cout << "NUMERIC CONSTANTS:" << endl;
@@ -166,9 +260,9 @@ int main(int argc, char *argv[]) {
 		cout << "IDENTIFIERS:" << endl;
 		printVec(idents);
 	}
-	if (kwFlag && !keywords.empty()) {
+	if (kwFlag && !kws.empty()) {
 		cout << "KEYWORDS:" << endl;
-		printVec(keywords);
+		printVec(kws);
 	}
 
 	return 0;

@@ -48,7 +48,7 @@ LexItem id_or_kw(const string &lexeme, int linenum) {
 
 	// Checks if the keyword exists
 	if (keywords.find(lowerLexeme) != keywords.end()) {
-		return LexItem(keywords[lowerLexeme], lexeme, linenum);
+		return LexItem(keywords[lowerLexeme], lowerLexeme, linenum);
 	}
 
 	return LexItem(IDENT, lexeme, linenum);
