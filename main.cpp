@@ -4,108 +4,49 @@
 // =============================================================================
 
 #include "lex.h"
-#include <algorithm>
 #include <fstream>
-#include <vector>
+#include <set>
 
-vector<string> idents;
-vector<string> kws;
-vector<string> numerics;
-vector<string> strings;
-vector<string> characters;
-vector<string> booleans;
+set<string> idents;
+set<string> kws;
+set<float> numerics;
+set<string> strings;
+set<string> characters;
+set<string> booleans;
 
 map<string, Token> keyMap {
 	{"if", IF},			{"else", ELSE}, {"print", PRINT},	  {"int", INT},		{"float", FLOAT},  {"char", CHAR},
 	{"string", STRING}, {"bool", BOOL}, {"program", PROGRAM}, {"true", BCONST}, {"false", BCONST},
 };
 
-void printVec(vector<string> vec, string surround = "") {
-	for (int i = 0; i < vec.size() - 1; i++) { cout << surround << vec.at(i) << surround << ", "; }
-
-	cout << surround << vec.at(vec.size() - 1) << surround << endl;
-}
-
-// Inserts while checking for duplicates
-void insertIntoVec(vector<string> &vec, string lex) {
-	for (string &l : vec) {
-		if (l == lex) {
-			return;
-		}
+// Prints a set as a comma separated list
+template<typename T> void printSet(set<T> set, string surround = "") {
+	// Prints all elements except the last with a comma proceeding it
+	for (auto item = set.begin(); item != std::prev(set.end(), 1); ++item) {
+		cout << surround << *item << surround << ", ";
 	}
 
-	vec.push_back(lex);
+	// Prints the last element without a comma
+	cout << surround << *std::prev(set.end(), 1) << surround << endl;
 }
 
-void sortKeywords(vector<string> &vec) {
-	int n = vec.size();
-
-	for (int i = 0; i < n - 1; i++) {
-		for (int j = 0; j < n - i - 1; j++) {
-			if (keyMap[vec[j]] > keyMap[vec[j + 1]]) {
-				string temp = vec[j];
-				vec[j] = vec[j + 1];
-				vec[j + 1] = temp;
-			}
-		}
-	}
-}
-
-void sortNumerics(vector<string> &vec) {
-	// Pairs together the int/float + string
-	vector<tuple<float, string>> pairs;
-	for (string i : vec) { pairs.push_back(make_tuple(stof(i), i)); }
-
-	// Sorts the pair array
-	int n = pairs.size();
-
-	for (int i = 0; i < n - 1; i++) {
-		for (int j = 0; j < n - i - 1; j++) {
-			if (get<0>(pairs[j]) > get<0>(pairs[j + 1])) {
-				tuple<float, string> temp = pairs[j];
-				pairs[j] = pairs[j + 1];
-				pairs[j + 1] = temp;
+// Loops through all keywords in order and prints them if they exist in the set
+void printKeywords(set<string> set) {
+	bool first = true;
+	for (int i = 0; i < 11; i++) {
+		for (auto word : set) {
+			if (keyMap[word] == i) {
+				if (first) {
+					cout << word;
+					first = false;
+					continue;
+				}
+				cout << ", " << word;
 			}
 		}
 	}
 
-	// Copies the sorted values onto the vector
-	for (int i = 0; i < pairs.size(); i++) { vec[i] = get<1>(pairs[i]); }
-}
-
-string convertStringInt(string num) {
-	string result = "";
-
-	// Gets rid of leading +
-	for (char &c : num) {
-		if (c != '+')
-			result += c;
-	}
-
-	return result;
-}
-
-string convertStringFloat(string num) {
-	string result = "";
-	bool sawOp = false;
-
-	// Adds a leading 0 when it sees a .
-	for (char &c : num) {
-		if (c == '.' && sawOp) {
-			result += "0.";
-			sawOp = false;
-		} else if (c == '-') {
-			result += c;
-			sawOp = true;
-		} else if (c == '+') {
-			sawOp = true;
-		} else {
-			result += c;
-			sawOp = false;
-		}
-	}
-
-	return result;
+	cout << endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -129,21 +70,21 @@ int main(int argc, char *argv[]) {
 		string arg = argv[i];
 
 		if (arg.at(0) == '-') {	 // Handle flags
-			if (arg == "-all") {
+			if (arg == "-all")
 				allFlag = true;
-			} else if (arg == "-id") {
+			else if (arg == "-id")
 				idFlag = true;
-			} else if (arg == "-kw") {
+			else if (arg == "-kw")
 				kwFlag = true;
-			} else if (arg == "-num") {
+			else if (arg == "-num")
 				numFlag = true;
-			} else if (arg == "-str") {
+			else if (arg == "-str")
 				strFlag = true;
-			} else if (arg == "-char") {
+			else if (arg == "-char")
 				charFlag = true;
-			} else if (arg == "-bool") {
+			else if (arg == "-bool")
 				boolFlag = true;
-			} else {
+			else {
 				cerr << "Unrecognized flag {" << arg << "}" << endl;
 				exit(1);
 			}
@@ -172,11 +113,13 @@ int main(int argc, char *argv[]) {
 	int numLines = 1;
 	int numTokens = 0;
 
+	// Reads a file to extract all of its tokens, erroring when necessary
 	while (!completed) {
-		// Reads each token
+		// Reads each token with lex.cpp
 		LexItem lex = getNextToken(inFile, numLines);
 		Token tokenType = lex.GetToken();
 
+		// Ends the program if an error occurs, printing the error
 		if (tokenType == ERR) {
 			cout << lex;
 			exit(1);
@@ -191,25 +134,26 @@ int main(int argc, char *argv[]) {
 			numTokens++;
 		}
 
+		// -all flag, printing each token as it is read
 		if (allFlag)
 			cout << lex;
 
+		string lexeme = lex.GetLexeme();
 		// Creates the list of values to be printed
-		if (tokenType == IDENT) {
-			insertIntoVec(idents, lex.GetLexeme());
-		} else if (tokenType < 9) {
-			insertIntoVec(kws, lex.GetLexeme());
-		} else if (tokenType == RCONST) {  // Integers and Real Constants
-			insertIntoVec(numerics, convertStringFloat(lex.GetLexeme()));
-		} else if (tokenType == ICONST) {
-			insertIntoVec(numerics, convertStringInt(lex.GetLexeme()));
-		} else if (tokenType == BCONST) {  // Booleans
-			insertIntoVec(booleans, lex.GetLexeme());
-		} else if (tokenType == SCONST) {  // Strings
-			insertIntoVec(strings, lex.GetLexeme());
-		} else if (tokenType == CCONST) {  // Characters
-			insertIntoVec(characters, lex.GetLexeme());
-		}
+		if (tokenType == IDENT)
+			idents.insert(lexeme);
+		else if (tokenType < 9)
+			kws.insert(lexeme);
+		else if (tokenType == RCONST)
+			numerics.insert(std::stof(lexeme));
+		else if (tokenType == ICONST)
+			numerics.insert(std::stof(lexeme));
+		else if (tokenType == BCONST)
+			booleans.insert(lexeme);
+		else if (tokenType == SCONST)
+			strings.insert(lexeme);
+		else if (tokenType == CCONST)
+			characters.insert(lexeme);
 	}
 
 	// Detects an empty file
@@ -218,43 +162,38 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
+	// Prints the statistics
 	cout << "\nLines: " << numLines << endl;
-	cout << "Total Tokens: " << numTokens << endl;									   // not counting done
+	cout << "Total Tokens: " << numTokens << endl;
 	cout << "Identifiers and Keywords: " << idents.size() + kws.size() << endl;		   // IDENT and keywords
 	cout << "Numerics: " << numerics.size() << endl;								   // ICONST and RCONST
 	cout << "Booleans: " << booleans.size() << endl;								   // BCONST
 	cout << "Strings and Characters: " << strings.size() + characters.size() << endl;  // SCONST and CCONST
 
-	sortNumerics(numerics);
-	std::sort(booleans.begin(), booleans.end());
-	std::sort(characters.begin(), characters.end());
-	std::sort(strings.begin(), strings.end());
-	std::sort(idents.begin(), idents.end());
-	sortKeywords(kws);
-
+	// Prints each of the lists if there are words in the list and its flag is active
 	if (numFlag && !numerics.empty()) {
 		cout << "NUMERIC CONSTANTS:" << endl;
-		printVec(numerics);
+		printSet(numerics);
 	}
 	if (boolFlag && !booleans.empty()) {
 		cout << "BOOLEAN CONSTANTS:" << endl;
-		printVec(booleans);
+		printSet(booleans);
 	}
 	if (charFlag && !characters.empty()) {
 		cout << "CHARACTER CONSTANTS:" << endl;
-		printVec(characters, "\'");
+		printSet(characters, "\'");
 	}
 	if (strFlag && !strings.empty()) {
 		cout << "STRINGS:" << endl;
-		printVec(strings, "\"");
+		printSet(strings, "\"");
 	}
 	if (idFlag && !idents.empty()) {
 		cout << "IDENTIFIERS:" << endl;
-		printVec(idents);
+		printSet(idents);
 	}
 	if (kwFlag && !kws.empty()) {
 		cout << "KEYWORDS:" << endl;
-		printVec(kws);
+		printKeywords(kws);
 	}
 
 	return 0;
