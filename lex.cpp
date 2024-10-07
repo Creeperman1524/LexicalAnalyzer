@@ -11,52 +11,53 @@ string enumToString[44] = {
 	"EQ",	 "NEQ",	   "ADDASSOP", "SUBASSOP", "MULASSOP", "DIVASSOP", "REMASSOP", "GTHAN",	 "LTHAN",	"AND",	"OR",
 	"NOT",	 "REM",	   "COMMA",	   "SEMICOL",  "LPAREN",   "RPAREN",   "DOT",	   "LBRACE", "RBRACE",	"ERR",	"DONE"};
 
-map<string, Token> keywords {
+map<string, Token> stringToEnum {
 	{"if", IF},			{"else", ELSE}, {"print", PRINT},	  {"int", INT},		{"float", FLOAT},  {"char", CHAR},
 	{"string", STRING}, {"bool", BOOL}, {"program", PROGRAM}, {"true", BCONST}, {"false", BCONST},
 };
 
 string opsAndDelims = "+-*/=!<>%&|,;(){}.";
 
+// Overloads the << operator to print out LexItems properly
 ostream &operator<<(ostream &out, const LexItem &tok) {
 	Token token = tok.GetToken();
 
 	// Output the elements as strings rather than ints
 	out << enumToString[token];
 
-	if (token == ICONST || token == RCONST || token == BCONST) {
+	// Adds special formatting for these tokens
+	if (token == ICONST || token == RCONST || token == BCONST)
 		out << ": (" << tok.GetLexeme() << ")";
-	} else if (token == IDENT) {
+	else if (token == IDENT)
 		out << ": <" << tok.GetLexeme() << ">";
-	} else if (token == SCONST) {
+	else if (token == SCONST)
 		out << ": \"" << tok.GetLexeme() << "\"";
-	} else if (token == CCONST) {
+	else if (token == CCONST)
 		out << ": \'" << tok.GetLexeme() << "\'";
-	} else if (token == ERR) {
+	else if (token == ERR)
 		out << ": In line " << tok.GetLinenum() << ", Error Message {" << tok.GetLexeme() << "}\n";
-	}
 
 	out << endl;
 	return out;
 }
 
+// Returns a LexItem of a keyword or identifier, depending on which it is
 LexItem id_or_kw(const string &lexeme, int linenum) {
 	string lowerLexeme = "";
 
 	// Converts the name to lowercase to void case sensitivity
-	for (char c : lexeme) { lowerLexeme += tolower(c); }
+	for (char c : lexeme) lowerLexeme += tolower(c);
 
 	// Checks if the keyword exists
-	if (keywords.find(lowerLexeme) != keywords.end()) {
-		return LexItem(keywords[lowerLexeme], lowerLexeme, linenum);
-	}
+	if (stringToEnum.find(lowerLexeme) != stringToEnum.end())
+		return LexItem(stringToEnum[lowerLexeme], lowerLexeme, linenum);
 
+	// No keyword exists, so return an identifier
 	return LexItem(IDENT, lexeme, linenum);
 }
 
+// Gets the next token from a stream
 LexItem getNextToken(istream &in, int &linenum) {
-	LexItem lex = LexItem();
-
 	// States of the lexer, used to determine multi-character tokens
 	enum STATES { START, IN_IDENT, IN_INT, IN_NUM, IN_OP, IN_STR, IN_CHAR, MULTI_COMMENT, SINGLE_COMMENT };
 
@@ -70,31 +71,23 @@ LexItem getNextToken(istream &in, int &linenum) {
 			case START:
 
 				if (c == EOF) {	 // End of file
-					lex = LexItem(DONE, "", linenum);
-					return lex;
+					return LexItem(DONE, "", linenum);
 
 				} else if (c == '\n') {	 // New lines
-					in.get();
-					// Do not count the EOF as aa new line
 
-					while (in.peek() == ' ') { in.get(); }	// Consumes all the whitespace
+					// FIX: This is actually hot garbage but it works :)
+					in.get();
+					while (in.peek() == ' ') in.get();	// Consumes all the whitespace
 
 					c = in.peek();
-					if (c == EOF) {
-						continue;
-					}
+					if (c == EOF) continue;
 					if (c == '\n') {
 						in.get();
-						c = in.peek();
-						if (c == EOF) {
-							continue;
-						}
+						if (in.peek() == EOF) continue;
 						linenum++;
 					}
 
-					if (c != EOF) {
-						linenum++;
-					}
+					linenum++;
 
 				} else if (opsAndDelims.find(c) != string::npos) {	// Operators and Delimiters
 					lexeme += in.get();
@@ -109,11 +102,11 @@ LexItem getNextToken(istream &in, int &linenum) {
 					curState = IN_INT;
 
 				} else if (c == '\"') {	 // Strings
-					in.get();			 // Consumes the "
+					in.get();			 // Consumes the starting "
 					curState = IN_STR;
 
 				} else if (c == '\'') {	 // Characters
-					in.get();			 // Consumes the '
+					in.get();			 // Consumes the starting '
 					curState = IN_CHAR;
 
 				} else if (isspace(c)) {
@@ -129,65 +122,47 @@ LexItem getNextToken(istream &in, int &linenum) {
 
 				// Checks if the character is still apart of an IDENT
 				// If not, return an identifier and restart
-				if (!isalpha(c) && !isdigit(c) && c != '_') {
-					return id_or_kw(lexeme, linenum);
-				}
+				if (!isalpha(c) && !isdigit(c) && c != '_') return id_or_kw(lexeme, linenum);
 
-				// Consumes the character
+				// Adds the character to the lexeme
 				lexeme += in.get();
-
 				break;
 
-			case IN_INT:
+			case IN_INT:  // Integer constants
 
 				// End of the integer
-				if (!isdigit(c) && c != '.') {
-					lex = LexItem(ICONST, lexeme, linenum);
-					return lex;
-				}
+				if (!isdigit(c) && c != '.') return LexItem(ICONST, lexeme, linenum);
 
 				// Check for possible Real Constant
 				if (c == '.') {
 					lexeme += in.get();
-					c = in.peek();
-					if (isdigit(c)) {
+					if (isdigit(in.peek())) {
 						curState = IN_NUM;
 						continue;
 					}
 
-					// ICONST followed by DOT
-					// 5.
+					// ICONST followed by DOT (5.)
 					// Puts back the dot we used to check the character following it
 					lexeme.pop_back();
 					in.putback('.');
-					lex = LexItem(ICONST, lexeme, linenum);
-					return lex;
+					return LexItem(ICONST, lexeme, linenum);
 				}
 
 				lexeme += in.get();
-
 				break;
 
-			case IN_NUM:
+			case IN_NUM:  // Real constants
 
-				// Error
-				// 1.7.2
-				if (c == '.') {
-					lex = LexItem(ERR, lexeme + '.', linenum);
-					return lex;
-				}
+				// Error (1.7.2)
+				if (c == '.') return LexItem(ERR, lexeme + '.', linenum);
 
 				// End of the Real Constant
-				if (!isdigit(c)) {
-					lex = LexItem(RCONST, lexeme, linenum);
-					return lex;
-				}
+				if (!isdigit(c)) return LexItem(RCONST, lexeme, linenum);
 
 				lexeme += in.get();
-
 				break;
 
-			case IN_OP:
+			case IN_OP:	 // Operators and delimiters
 
 				switch (lexeme.at(0)) {
 					case '+':
@@ -196,8 +171,7 @@ LexItem getNextToken(istream &in, int &linenum) {
 						c = in.peek();
 						if (c == '=') {
 							lexeme += in.get();
-							lex = LexItem(ADDASSOP, lexeme, linenum);
-							return lex;
+							return LexItem(ADDASSOP, lexeme, linenum);
 						} else if (isdigit(c)) {  // Start of an Integer Constant
 							lexeme += in.get();
 							curState = IN_INT;
@@ -210,7 +184,6 @@ LexItem getNextToken(istream &in, int &linenum) {
 
 						// Single character
 						return LexItem(PLUS, lexeme, linenum);
-
 						break;
 					case '-':
 
@@ -218,8 +191,7 @@ LexItem getNextToken(istream &in, int &linenum) {
 						c = in.peek();
 						if (c == '=') {
 							lexeme += in.get();
-							lex = LexItem(SUBASSOP, lexeme, linenum);
-							return lex;
+							return LexItem(SUBASSOP, lexeme, linenum);
 						} else if (isdigit(c)) {  // Start of an Integer Constant
 							lexeme += in.get();
 							curState = IN_INT;
@@ -232,21 +204,17 @@ LexItem getNextToken(istream &in, int &linenum) {
 
 						// Single character
 						return LexItem(MINUS, lexeme, linenum);
-
 						break;
 					case '*':
 
 						// Check for assignment operation
-						c = in.peek();
-						if (c == '=') {
+						if (in.peek() == '=') {
 							lexeme += in.get();
-							lex = LexItem(MULASSOP, lexeme, linenum);
-							return lex;
+							return LexItem(MULASSOP, lexeme, linenum);
 						}
 
 						// Single character
 						return LexItem(MULT, lexeme, linenum);
-
 						break;
 					case '/':
 
@@ -254,8 +222,7 @@ LexItem getNextToken(istream &in, int &linenum) {
 						c = in.peek();
 						if (c == '=') {
 							lexeme += in.get();
-							lex = LexItem(DIVASSOP, lexeme, linenum);
-							return lex;
+							return LexItem(DIVASSOP, lexeme, linenum);
 						} else if (c == '/') {	// Single-comment
 							lexeme.pop_back();	// Takes the / out of the lexeme
 							in.get();
@@ -270,79 +237,63 @@ LexItem getNextToken(istream &in, int &linenum) {
 
 						// Single character
 						return LexItem(DIV, lexeme, linenum);
-
 						break;
 					case '=':
 
 						// Check for assignment operation
-						c = in.peek();
-						if (c == '=') {
+						if (in.peek() == '=') {
 							lexeme += in.get();
-							lex = LexItem(EQ, lexeme, linenum);
-							return lex;
+							return LexItem(EQ, lexeme, linenum);
 						}
 
 						// Single character
 						return LexItem(ASSOP, lexeme, linenum);
-
 						break;
 					case '!':
 
 						// Check for assignment operation
-						c = in.peek();
-						if (c == '=') {
+						if (in.peek() == '=') {
 							lexeme += in.get();
-							lex = LexItem(NEQ, lexeme, linenum);
-							return lex;
+							return LexItem(NEQ, lexeme, linenum);
 						}
 
 						// Single character
 						return LexItem(NOT, lexeme, linenum);
-
 						break;
 					case '<': return LexItem(LTHAN, lexeme, linenum); break;
 					case '>': return LexItem(GTHAN, lexeme, linenum); break;
 					case '%':
 
 						// Check for assignment operation
-						c = in.peek();
-						if (c == '=') {
+						if (in.peek() == '=') {
 							lexeme += in.get();
-							lex = LexItem(REMASSOP, lexeme, linenum);
-							return lex;
+							return LexItem(REMASSOP, lexeme, linenum);
 						}
 
 						// Single character
 						return LexItem(REM, lexeme, linenum);
-
 						break;
 					case '&':
 
 						// Check for the double character
-						c = in.peek();
-						if (c == '&') {
+						if (in.peek() == '&') {
 							lexeme += in.get();
-							lex = LexItem(AND, lexeme, linenum);
-							return lex;
+							return LexItem(AND, lexeme, linenum);
 						}
 
 						// Error for single &
 						return LexItem(ERR, lexeme, linenum);
-
 						break;
 					case '|':
 
 						// Check for the double character
-						c = in.peek();
-						if (c == '|') {
+						if (in.peek() == '|') {
 							lexeme += in.get();
-							lex = LexItem(OR, lexeme, linenum);
-							return lex;
+							return LexItem(OR, lexeme, linenum);
 						}
 
 						// Error for single |
 						return LexItem(ERR, lexeme, linenum);
-
 						break;
 					case ',': return LexItem(COMMA, lexeme, linenum); break;
 					case ';': return LexItem(SEMICOL, lexeme, linenum); break;
@@ -353,8 +304,7 @@ LexItem getNextToken(istream &in, int &linenum) {
 					case '.':
 
 						// Checks if it's the start of a Real Constant
-						c = in.peek();
-						if (isdigit(c)) {
+						if (isdigit(in.peek())) {
 							lexeme += in.get();
 							curState = IN_NUM;
 							continue;
@@ -363,8 +313,6 @@ LexItem getNextToken(istream &in, int &linenum) {
 						break;
 				}
 
-				return LexItem(IDENT, "womp", linenum);
-
 				break;
 
 			case IN_STR:  // String constants
@@ -372,24 +320,16 @@ LexItem getNextToken(istream &in, int &linenum) {
 				// Correct string
 				if (c == '\"') {
 					in.get();  // Consumes the final delimiter
-					lex = LexItem(SCONST, lexeme, linenum);
-					return lex;
+					return LexItem(SCONST, lexeme, linenum);
 				}
 
 				// Mismatched pair
-				if (c == '\'') {
-					lex = LexItem(ERR, " Invalid string constant \"" + lexeme + "\'", linenum);
-					return lex;
-				}
+				if (c == '\'') return LexItem(ERR, " Invalid string constant \"" + lexeme + "\'", linenum);
 
 				// Missing pair
-				if (c == '\n') {
-					lex = LexItem(ERR, " Invalid string constant \"" + lexeme, linenum);
-					return lex;
-				}
+				if (c == '\n') return LexItem(ERR, " Invalid string constant \"" + lexeme, linenum);
 
-				lexeme += in.get();
-
+				lexeme += in.get();	 // Adds all characters into the string constant
 				break;
 
 			case IN_CHAR:  // Character constants
@@ -397,39 +337,27 @@ LexItem getNextToken(istream &in, int &linenum) {
 				// Correct char
 				if (c == '\'') {
 					in.get();  // Consumes the final delimiter
-					lex = LexItem(CCONST, lexeme, linenum);
-					return lex;
+					return LexItem(CCONST, lexeme, linenum);
 				}
 
 				// Too long
-				if (lexeme.length() > 1) {
-					lex = LexItem(ERR, " Invalid character constant \'" + lexeme + "\'", linenum);
-					return lex;
-				}
+				if (lexeme.length() > 1) return LexItem(ERR, " Invalid character constant \'" + lexeme + "\'", linenum);
 
 				// Missing pair
-				if (c == '\n') {
-					lex = LexItem(ERR, "New line is an invalid character constant.", linenum);
-					return lex;
-				}
+				if (c == '\n') return LexItem(ERR, "New line is an invalid character constant.", linenum);
 
-				lexeme += in.get();
-
+				lexeme += in.get();	 // Adds all characters into the character constant
 				break;
 
 			case MULTI_COMMENT:	 // Multi-line comment
 
 				// Keep the count of lines
-				if (c == '\n') {
-					linenum++;
-				}
+				if (c == '\n') linenum++;
 
 				// Keeps checking for */
 				if (c == '*') {
 					in.get();
-					if (in.peek() == '/') {
-						curState = START;
-					}
+					if (in.peek() == '/') curState = START;
 				}
 
 				in.get();  // Consumes all the characters in the comment
@@ -450,5 +378,5 @@ LexItem getNextToken(istream &in, int &linenum) {
 		}
 	}
 
-	return lex;
+	return LexItem();
 }

@@ -135,8 +135,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		// -all flag, printing each token as it is read
-		if (allFlag)
-			cout << lex;
+		if (allFlag) cout << lex;
 
 		string lexeme = lex.GetLexeme();
 		// Creates the list of values to be printed
